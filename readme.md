@@ -1,12 +1,12 @@
-# GDR : Grouped Discrete Representation for Object-Centric Learning
+# MSF : Multi-Scale Fusion for Object Representation
 
 
 
 ## About
 
-Official implementation of paper "*Grouped Discrete Representation for Object-Centric Learning*" available on [arXiv:2411.02299](https://arxiv.org/abs/2411.02299).
+Official implementation of paper "*Multi-Scale Fusion for Object Representation*" available on [arXiv:2410.01539](https://arxiv.org/abs/2410.01539).
 
-**GDR is *re-implemented* upon codebase [VQ-VFM-OCL](https://github.com/Genera1Z/VQ-VFM-OCL). For more details, models, checkpoints, datasets and results, please visit this repo.**
+**MSF is *re-implemented* upon codebase [VQ-VFM-OCL](https://github.com/Genera1Z/VQ-VFM-OCL). For more details, models, checkpoints, datasets and results, please visit this repo.**
 
 Quantative results:
 
@@ -23,8 +23,6 @@ Dataset [COCO](https://cocodataset.org) is available on [dataset-coco](https://g
 ## Model Checkpoints 🌟
 
 The checkpoints for all models are available.
-- [slate-gdr-coco](https://github.com/Genera1Z/VQ-VFM-OCL/releases/tag/slate-gdr-coco): SLATE with GDR on COCO.
-- [slotdiffusion-gdr-coco](https://github.com/Genera1Z/VQ-VFM-OCL/releases/tag/slotdiffusion-gdr-coco): SlotDiffusion with GDR on COCO.
 - [slate-msf-coco](https://github.com/Genera1Z/VQ-VFM-OCL/releases/tag/slate-msf-coco): SLATE with MSF on COCO.
 - [slotdiffusion-msf-coco](https://github.com/Genera1Z/VQ-VFM-OCL/releases/tag/slotdiffusion-msf-coco): SlotDiffusion with MSF on COCO.
 
@@ -60,11 +58,11 @@ Specifically on training:
 - For SLATE/STEVE, there are two stages for training. For example,
 ```shell
 # 1. pretrain the VAE module
-python train.py --cfg_file config-slatesteve/vqvae-coco-c256-gdr.py
-# *. place the best VAE checkpoint at archive-slatesteve/vqvae-coco-c256-gdr/best.pth
+python train.py --cfg_file config-slatesteve/vqvae-coco-c256-msf.py
+# *. place the best VAE checkpoint at archive-slatesteve/vqvae-coco-c256-msf/best.pth
 mv save archive-slatesteve
 # 2. train the OCL model
-python train.py --cfg_file config-slatesteve/slate_r_vqvae-gdr-coco.py --ckpt_file archive-slatesteve/vqvae-coco-c256-gdr/best.pth
+python train.py --cfg_file config-slatesteve/slate_r_vqvae-msf-coco.py --ckpt_file archive-slatesteve/vqvae-coco-c256-msf/best.pth
 ```
 
 
@@ -91,10 +89,10 @@ I am now working on object-centric learning (OCL). If you have any cool ideas on
 
 If you find this repo useful, place cite our work.
 ```
-@article{zhao2025gdr,
-  title={{Grouped Discrete Representation for Object-Centric Learning}},
+@article{zhao2025msf,
+  title={{Multi-Scale Fusion for Object Representation}},
   author={Zhao, Rongzhen and Wang, Vivienne and Kannala, Juho and Pajarinen, Joni},
-  journal={ECML PKDD},
+  journal={ICLR},
   year={2025}
 }
 ```
