@@ -23,8 +23,8 @@ Dataset [COCO](https://cocodataset.org) is available on [dataset-coco](https://g
 ## Model Checkpoints 🌟
 
 The checkpoints for all models are available.
-- [slate-msf-coco](https://github.com/Genera1Z/VQ-VFM-OCL/releases/tag/slate-msf-coco): SLATE with MSF on COCO.
-- [slotdiffusion-msf-coco](https://github.com/Genera1Z/VQ-VFM-OCL/releases/tag/slotdiffusion-msf-coco): SlotDiffusion with MSF on COCO.
+- [slate-msf-coco](https://github.com/Genera1Z/MultiScaleFusion/releases/tag/slate-msf-coco): SLATE with MSF on COCO.
+- [slotdiffusion-msf-coco](https://github.com/Genera1Z/MultiScaleFusion/releases/tag/slotdiffusion-msf-coco): SlotDiffusion with MSF on COCO.
 
 
 
