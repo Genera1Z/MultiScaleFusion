@@ -87,7 +87,7 @@ I am now working on object-centric learning (OCL). If you have any cool ideas on
 
 ### Citation
 
-If you find this repo useful, place cite our work.
+If you find this repo useful, please cite our work.
 ```
 @article{zhao2025msf,
   title={{Multi-Scale Fusion for Object Representation}},
