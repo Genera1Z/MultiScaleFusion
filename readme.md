@@ -4,9 +4,9 @@
 
 ## About
 
-Official implementation of paper "*Multi-Scale Fusion for Object Representation*" available on [arXiv:2410.01539](https://arxiv.org/abs/2410.01539).
+Official implementation of ICLR 2025 paper "*Multi-Scale Fusion for Object Representation*" available on [arXiv:2410.01539](https://arxiv.org/abs/2410.01539).
 
-**MSF is *re-implemented* upon codebase [VQ-VFM-OCL](https://github.com/Genera1Z/VQ-VFM-OCL). For more details, models, checkpoints, datasets and results, please visit this repo.**
+**Please note that this MSF is *re-implemented* upon codebase [VQ-VFM-OCL](https://github.com/Genera1Z/VQ-VFM-OCL), different from the version described in the paper. For more details, models, checkpoints, datasets and results, please visit this repo.**
 
 Quantative results:
 
