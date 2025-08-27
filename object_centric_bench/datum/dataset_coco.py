@@ -20,6 +20,7 @@ class MSCOCO(ptud.Dataset):
     def __init__(
         self,
         data_file,
+        instance=...,
         extra_keys=["bbox", "segment", "clazz"],
         transform=lambda **_: _,
         max_spare=4,
