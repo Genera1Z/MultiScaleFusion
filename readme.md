@@ -1,4 +1,4 @@
-# MSF : Multi-Scale Fusion for Object Representation
+# `MSF` Multi-Scale Fusion for Object Representation
 
 
 
