@@ -1,8 +1,13 @@
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
 from abc import ABC, abstractmethod
 from bisect import bisect
 from numbers import Number
 
 import numpy as np
+import torch as pt
 
 
 class Schedule(ABC):
@@ -23,6 +28,7 @@ class Schedule(ABC):
         self.step_count_key = step_count_key
         self.sched = ...
 
+    @pt.inference_mode()
     def __call__(self, **pack: dict) -> dict:
         step_count = pack[self.step_count_key]
         for k in pack.keys():  # extract all global values

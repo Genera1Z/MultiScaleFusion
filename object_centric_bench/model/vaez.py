@@ -1,3 +1,7 @@
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
 import math
 
 import torch as pt
@@ -71,7 +75,7 @@ class QuantiZ(nn.Module):
         quant = self.select(zidx)
         return zidx, quant
 
-    def match(self, encode, std=None):
+    def match(self, encode):
         b, h, w, c = encode.shape
 
         if any(_.requires_grad for _ in self.project.parameters()):
@@ -89,8 +93,7 @@ class QuantiZ(nn.Module):
         # ``mean`` has no effects on gumbel while ``std`` has
         simi = (simi0 - self.mu) / self.sigma  # ~N(0,1*std)
 
-        self_std = self.std if std is None else std
-        if self.training and self_std > 0:
+        if self.training and self.std > 0:
             # ``mean`` has no effect on gumbel while ``std`` has
             zsoft = ptnf.gumbel_softmax(simi * self.std, 1, False, dim=-1)  # (b,h,w,m)
         else:
@@ -219,6 +222,7 @@ class VQVAEZMultiScale(VQVAEZ):
         self.num_scale = num_scale
         self.retr = retr  # return residual or not
         self.eaq = eaq  # encode as quant, for dfz s2 only
+        self.register_buffer("tau", pt.tensor(tau, dtype=pt.float), persistent=False)
 
     def forward(self, input):
         ### resize
@@ -234,7 +238,7 @@ class VQVAEZMultiScale(VQVAEZ):
             encodes_ = [self.project(_, pinv=True) for _ in encodes_]
         ### quant: match and select
         zidxs_, encodes_, quants_ = __class__.ms_fuse(  # s*(b,h,w) s*(b,h,w,c)x2
-            self.quant, encodes_
+            self.quant, encodes_, self.tau
         )
         ### residual
         residuals_ = quants_
@@ -263,21 +267,14 @@ class VQVAEZMultiScale(VQVAEZ):
             return encodes_, zidxs, quants_, residuals_, decodes
         ### else:  # self.decode is None
         if self.eaq:
-            if self.project:
-                ___ = [
-                    self.project(_.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
-                    for _ in encodes_
-                ]
-            else:
-                ___ = encodes_
-            quants = ___
+            quants = encodes
         if self.retr:
             return encodes[0], zidxs[0], quants[0], None, decodes[0]
         else:
             return encodes[0], zidxs[0], quants[0], decodes[0]
 
     @staticmethod
-    def ms_fuse(quantzs: nn.ModuleList, encodes: list):
+    def ms_fuse(quantzs: nn.ModuleList, encodes: list, tau):
         s = len(encodes)
         assert len(quantzs) == 1 + s  # shared*1 + specified*s
         b, h, w, c = encodes[0].shape
@@ -304,12 +301,14 @@ class VQVAEZMultiScale(VQVAEZ):
 
             encode1_ = pt.stack(encode1_)  # (s,b,h,w,c/2)
             zsoft1_, zidx1_ = quantzs[0].match(  # (s*b,h,w,m) (s*b,h,w)
-                encode1_.flatten(0, 1)  # , std=0.0
+                encode1_.flatten(0, 1)
             )
             zsoft1_ = zsoft1_.unflatten(0, [s, b])
             # zidx1_ = zidx1_.unflatten(0, [s, b])
 
             zsoft11, zidx11 = zsoft1_.max(-1)  # (s,b,h,w,m) -> (s,b,h,w)
+            if tau > 0:
+                zsoft11 = ptnf.gumbel_softmax(zsoft11 / tau, dim=0)
             zidx12 = zsoft11.argmax(0)  # (s,b,h,w) -> (b,h,w)
             zidx1 = zidx11.gather(0, zidx12[None, :, :, :])[0]
             encode1 = encode1_.gather(  # (s,b,h,w,c/2) -> (b,h,w,c/2)
@@ -339,7 +338,7 @@ class VQVAEZMultiScale(VQVAEZ):
         return zidxs, encodes, quants
 
 
-class LinearPinv(nn.Module):  # XXX different from origin papers: with this often worse
+class LinearPinv(nn.Module):
     """Supported shape: (b,n,c) or (b,h,w,c)."""
 
     def __init__(self, in_channel, out_channel, bias=True):

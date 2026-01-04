@@ -1,3 +1,7 @@
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
 from diffusers import DDPMScheduler, UNet2DConditionModel
 from einops import rearrange
 import torch as pt

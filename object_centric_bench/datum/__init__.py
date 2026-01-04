@@ -1,17 +1,15 @@
-from ..utils import register_module
-from .dataset import DataLoader
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
+from .dataset import DataLoader, ChainDataset, ConcatDataset, StackDataset
 from .dataset_coco import MSCOCO
 from .transform import (
     Lambda,
     Normalize,
-    Rearrange,
-    Clone,
     RandomFlip,
     RandomCrop,
     CenterCrop,
     Resize,
-    TupleToNumber,
-    Detach,
 )
-
-[register_module(_) for _ in locals().values() if isinstance(_, type)]
+from .collate import ClPadToMax1, ClPadTo1, DefaultCollate

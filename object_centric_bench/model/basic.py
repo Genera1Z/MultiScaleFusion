@@ -1,18 +1,24 @@
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
 from operator import attrgetter
 import re
 
-from diffusers.models import AutoencoderKL, AutoencoderTiny
+from diffusers.models import AutoencoderTiny
 from einops import rearrange
 import timm
 import torch as pt
 import torch.nn as nn
 import torch.nn.functional as ptnf
 
+from ..util import DictTool
+
 
 ####
 
 
-class ModelWrap(nn.Module):
+class ModelWrap(nn.Module):  # TODO XXX TensorDictModule
 
     def __init__(self, m: nn.Module, imap, omap):
         """
@@ -28,8 +34,10 @@ class ModelWrap(nn.Module):
         self.imap = imap if isinstance(imap, dict) else {_: _ for _ in imap}
         self.omap = omap
 
-    def forward(self, input: dict) -> dict:
-        input2 = {k: input[v] for k, v in self.imap.items()}
+    # def forward(self, input: dict) -> dict:
+    def forward(self, **pack: dict) -> dict:
+        # input2 = {k: input[v] for k, v in self.imap.items()}
+        input2 = {k: DictTool.getattr(pack, v) for k, v in self.imap.items()}
         output = self.m(**input2)
         if not isinstance(output, (list, tuple)):
             output = [output]
@@ -181,34 +189,6 @@ class Interpolate(nn.Module):
         return ptnf.interpolate(input, self.size, self.scale_factor, self.interp)
 
 
-class Conv2dPixelShuffle(nn.Sequential):
-
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        kernel_size,
-        stride=1,
-        padding=0,
-        dilation=1,
-        groups=1,
-        bias=True,
-        upscale=2,
-    ):
-        conv = nn.Conv2d(
-            in_channels,
-            out_channels * upscale**2,
-            kernel_size,
-            stride,
-            padding,
-            dilation,
-            groups,
-            bias,
-        )
-        shuff = nn.PixelShuffle(upscale)
-        super().__init__(conv, shuff)
-
-
 Dropout = nn.Dropout
 
 
@@ -240,50 +220,6 @@ TransformerDecoder = nn.TransformerDecoder
 
 
 ###
-
-
-class CNN(nn.Sequential):
-    """hyperparam setting of ConvTranspose2d:
-    https://blog.csdn.net/pl3329750233/article/details/130283512.
-    """
-
-    conv_types = {
-        0: nn.Conv2d,
-        1: lambda *a, **k: nn.ConvTranspose2d(*a, **k, output_padding=1),
-        2: lambda *a, **k: Conv2dPixelShuffle(*a, **k, upscale=2),
-    }
-
-    def __init__(self, in_dim, dims, kernels, strides, ctypes=0, gn=0, act="SiLU"):
-        """
-        - ctypes: 0 for normal conv2d, 1 for convtransposed, 2 for convpixelshuffle
-        - gn: 0 for no groupnorm, >0 for groupnorm(num_groups=g)
-        """
-        if isinstance(ctypes, int):
-            ctypes = [ctypes] * len(dims)
-        assert len(dims) == len(kernels) == len(strides) == len(ctypes)
-        num = len(dims)
-
-        layers = []
-        ci = in_dim
-
-        for i, (t, c, k, s) in enumerate(zip(ctypes, dims, kernels, strides)):
-            p = k // 2 if k % 2 != 0 else 0  # XXX for k=s=4, requires isize%k==0
-
-            if i + 1 < num:
-                block = [
-                    __class__.conv_types[t](ci, c, k, stride=s, padding=p),
-                    nn.GroupNorm(gn, c) if gn else None,
-                    nn.__dict__[act](inplace=True),  # SiLU>Mish>ReLU>Hardswish
-                ]
-            else:
-                block = [
-                    __class__.conv_types[t](ci, c, k, stride=s, padding=p),
-                ]
-
-            layers.extend([_ for _ in block if _])
-            ci = c
-
-        super().__init__(*layers)
 
 
 class MLP(nn.Sequential):

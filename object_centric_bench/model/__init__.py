@@ -1,4 +1,7 @@
-from ..utils import register_module
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
 from .basic import (
     ModelWrap,
     Sequential,
@@ -22,7 +25,6 @@ from .basic import (
     TransformerDecoderLayer,
     TransformerEncoder,
     TransformerDecoder,
-    CNN,
     MLP,
     Identity,
     DINO2ViT,
@@ -37,15 +39,12 @@ from .ocl import (
     LearntPositionalEmbedding,
     VQVAE,
     Codebook,
-    LearntPositionalEmbedding,
 )
-from .slatesteve import SLATE, STEVE, ARTransformerDecoder
+from .slatesteve import SLATE, ARTransformerDecoder
 from .slotdiffusion import (
     SlotDiffusion,
     ConditionDiffusionDecoder,
     NoiseSchedule,
     UNet2dCondition,
 )
-from .vaez import VQVAEZ, QuantiZ, VQVAEZGrouped, VQVAEZMultiScale
-
-[register_module(_) for _ in locals().values() if isinstance(_, type)]
+from .vaez import VQVAEZ, QuantiZ, VQVAEZGrouped, VQVAEZMultiScale, LinearPinv

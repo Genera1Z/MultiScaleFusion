@@ -1,3 +1,7 @@
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
 import torch as pt
 import torch.nn as nn
 import torch.nn.functional as ptnf
@@ -6,7 +10,7 @@ from .basic import MLP
 
 
 class SlotAttention(nn.Module):
-    """TODO XXX modularization/cgv: correct the wrong implementation!"""
+    """"""
 
     def __init__(
         self, num_iter, embed_dim, ffn_dim, dropout=0, kv_dim=None, trunc_bp=None
@@ -33,7 +37,7 @@ class SlotAttention(nn.Module):
         """
         input: in shape (b,h*w,c)
         query: in shape (b,n,c)
-        smask: slots' mask, shape=(b,n), dtype=bool
+        smask: slots' mask, shape=(b,n), dtype=bool. True means there is a valid slot.
         """
         b, n, c = query.shape
         self_num_iter = num_iter or self.num_iter
@@ -66,27 +70,14 @@ class SlotAttention(nn.Module):
         o = pt.einsum("bqv,bvc->bqc", a, v)
         return o, a0
 
-    """@staticmethod
-    def inverted_scaled_dot_product_attention(q, k, v, eps=1e-5, h=4):
-        q = rearrange(q, "b q (h d) -> (b h) q d", h=h)
-        k = rearrange(k, "b k (h d) -> (b h) k d", h=h)
-        v = rearrange(v, "b k (h d) -> (b h) k d", h=h)
-        scale = q.size(2) ** -0.5  # temperature
-        logit = pt.einsum("bqc,bkc->bqk", q * scale, k)
-        a0 = logit.softmax(1)  # inverted: softmax over query  # , logit.dtype
-        a = a0 / (a0.sum(2, keepdim=True) + eps)  # re-normalize over key
-        # a = self_dropout(a)
-        o = pt.einsum("bqv,bvc->bqc", a, v)
-        o = rearrange(o, "(b h) q d -> b q (h d)", h=h)
-        return o, a0"""
-
 
 class CartesianPositionalEmbedding2d(nn.Module):
     """"""
 
-    def __init__(self, resolut, embed_dim):
+    def __init__(self, resolut: list, embed_dim: int):
         super().__init__()
-        self.pe = nn.Parameter(
+        assert len(resolut) == 2
+        self._pe = nn.Parameter(
             __class__.meshgrid(resolut)[None, ...], requires_grad=False
         )
         self.project = nn.Linear(4, embed_dim)
@@ -105,8 +96,12 @@ class CartesianPositionalEmbedding2d(nn.Module):
         output: in shape (b,h,w,c)
         """
         max_h, max_w = input.shape[1:3]
-        output = input + self.project(self.pe[:, :max_h, :max_w, :])
+        output = input + self.project(self._pe[:, :max_h, :max_w, :])
         return output
+
+    @property
+    def pe(self):
+        return self.project(self._pe)  # .flatten(1, -2)
 
 
 class LearntPositionalEmbedding(nn.Module):
@@ -114,12 +109,24 @@ class LearntPositionalEmbedding(nn.Module):
     PositionalEncoding: https://pytorch.org/tutorials/beginner/transformer_tutorial.html
     """
 
-    def __init__(self, resolut: list, embed_dim: int):
+    def __init__(self, resolut: list, embed_dim: int, in_dim: int = 0):
         super().__init__()
         self.resolut = resolut
         self.embed_dim = embed_dim
-        self.pe = nn.Parameter(pt.zeros(1, *resolut, embed_dim), requires_grad=True)
-        nn.init.trunc_normal_(self.pe)
+        if in_dim:
+            self._pe = nn.Parameter(pt.zeros(1, *resolut, in_dim), requires_grad=True)
+            self._project = nn.Linear(in_dim, embed_dim)
+        else:
+            self._pe = nn.Parameter(
+                pt.zeros(1, *resolut, embed_dim), requires_grad=True
+            )
+        nn.init.trunc_normal_(self._pe)
+
+    @property
+    def pe(self):
+        if hasattr(self, "_project"):
+            return self._project(self._pe)
+        return self._pe
 
     def forward(self, input, retp=False):
         """
@@ -127,9 +134,6 @@ class LearntPositionalEmbedding(nn.Module):
         output: in shape (b,*r,c)
         """
         max_r = ", ".join([f":{_}" for _ in input.shape[1:-1]])
-        # TODO XXX support variant length
-        # pe = timm.layers.pos_embed.resample_abs_pos_embed(self.pe, ...)
-        # pe = self.pe[:, :max_resolut, :]
         pe = eval(f"self.pe[:, {max_r}, :]")
         output = input + pe
         if retp:
@@ -267,12 +271,6 @@ class Codebook(nn.Module):
             encode = encode.detach()
         elif detach == "templat":
             templat = templat.detach()
-        # b, c, h, w = encode.shape
-        # dist = __class__.euclidean_distance(  # (b*h*w,c) (m,c) -> (b*h*w,m)
-        #    encode.permute(0, 2, 3, 1).flatten(0, -2), templat
-        # )
-        # dist = dist.view(b, h, w, -1).permute(0, 3, 1, 2)  # (b,m,h,w)
-        # simi = -dist.square()  # better than without  # TODO XXX learnable scale ???
         dist = (  # always better than cdist.square, why ???
             encode.square().sum(1, keepdim=True)  # (b,1,h,w)
             + templat.square().sum(1)[None, :, None, None]

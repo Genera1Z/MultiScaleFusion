@@ -1,12 +1,10 @@
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
 import importlib
-import os
 import pathlib as pl
-import pdb
-import re
 import sys
-
-
-MODULE_DICT = {}
 
 
 class Config(dict):
@@ -46,12 +44,6 @@ class Config(dict):
 
     __setitem__ = __setattr__
 
-    # def __iter__(self):  # TODO XXX conflict with ``build_from_config`` in ``list``s  # TODO XXX ???
-    #     # values = list(self.values())
-    #     # if len(values) == 1:
-    #     #     return values[0]  # TODO check this
-    #     return iter(self.values())  # keeps order if using Python 3.7+
-
     @staticmethod
     def fromfile(cfg_file: pl.Path) -> "Config":
         if isinstance(cfg_file, str):
@@ -77,16 +69,6 @@ class Config(dict):
         return super(Config, self).pop(k, d)
 
 
-def register_module(module, force=False):
-    if not callable(module):
-        raise TypeError(f"module must be Callable, but got {type(module)}")
-    name = module.__name__
-    if not force and name in MODULE_DICT:
-        pdb.set_trace()
-        raise KeyError(f"{name} is already registered")
-    MODULE_DICT[name] = module
-
-
 def build_from_config(cfg):
     """Build a module from config dict."""
     if cfg is None:
@@ -102,23 +84,9 @@ def build_from_config(cfg):
         for k, v in cfg.items():
             cfg[k] = build_from_config(v)
         if cls_key is not None:
-            obj = MODULE_DICT[cls_key](**cfg)
+            obj = cls_key(**cfg)  # MODULE_DICT[cls_key](**cfg)
         else:
             obj = cfg
-    # elif isinstance(cfg, DynamicConfig):
-    #     dcfg = cfg.__dict__.copy()  # TODO deepcopy ???
-    #     dcfg.pop("root")
-    #     if "clsdef" in dcfg:
-    #         clsdef = dcfg.pop("clsdef")
-    #     else:
-    #         clsdef = None
-    #     for k, v in dcfg.items():
-    #         v = eval(f"cfg.{k}")
-    #         dcfg[k] = build_from_config(v)
-    #     if clsdef is not None:
-    #         obj = clsdef(**dcfg)
-    #     else:
-    #         obj = cfg
     else:
         obj = cfg
     return obj
@@ -126,23 +94,6 @@ def build_from_config(cfg):
 
 class DictTool:
     """Support nested `dict`s and `list`s."""
-
-    # @staticmethod
-    # def popattr(obj, key):
-    #     assert isinstance(obj, (dict, list))
-
-    #     def resolve_attr(obj, key):
-    #         keys = key.split(".")
-    #         for name in keys:
-    #             if isinstance(obj, dict):
-    #                 obj = obj.pop(name)
-    #             elif isinstance(obj, list) and name.isdigit():
-    #                 obj = obj.pop(int(name))
-    #             else:
-    #                 raise KeyError(f"Invalid key or index: {name}")
-    #         return obj
-
-    #     return resolve_attr(obj, key)
 
     @staticmethod
     def getattr(obj, key):
@@ -217,4 +168,9 @@ class Compose:
         return self.transforms[idx]
 
 
-register_module(Compose)
+class ComposeNoStar(Compose):
+
+    def __call__(self, kwds):
+        for t in self.transforms:
+            kwds = t(kwds)
+        return kwds

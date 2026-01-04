@@ -1,9 +1,25 @@
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
 import torch.amp.grad_scaler as ptags
 import torch.nn.utils.clip_grad as ptnucg
 import torch.optim as pto
 
 
+SGD = pto.SGD
+
+
 Adam = pto.Adam
+
+
+AdamW = pto.AdamW
+
+
+NAdam = pto.NAdam
+
+
+RAdam = pto.RAdam
 
 
 ####

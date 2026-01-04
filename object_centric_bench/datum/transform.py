@@ -1,28 +1,54 @@
+"""
+Copyright (c) 2024 Genera1Z
+https://github.com/Genera1Z
+"""
 import random
 
-from einops import rearrange
 import numpy as np
 import torch as pt
 import torchvision.transforms.v2 as ptvt2
 
-from ..utils import DictTool
+from ..util import DictTool
 
 
 class Lambda:
+    """Wrapping simple transforms that can be coded in one line.
+    Support arbitrary number of inputs and arbitrary number of outputs.
+    """
 
-    def __init__(self, keys, func=lambda _: _):
-        self.keys = keys
+    def __init__(self, ikeys, func=lambda _: _, okeys=None):
+        """
+        - ikeys: [[str,..],..] two-layer list, shape=(#args,#keys)
+            len(ikeys)==1 for unary operator, len=2 for binary, len=3 for ternary
+        - dkeys: [[str,..],..] two-layer list, shape=(#args,#keys)
+            for non-inplace transforms
+            can be ``None`` only when ``len(ikeys)==1``
+        """
+        # utilize numpy for sanity check
+        self.ikeys = np.array(ikeys)
+        self.okeys = okeys if okeys is None else np.array(okeys)
+
+        if okeys is None:
+            assert self.ikeys.shape[0] == 1
+            self.okeys = self.ikeys  # for unary inplace transform, okeys == ikeys
+        else:
+            assert self.ikeys.shape[1] == self.okeys.shape[1]
+
         if type(func) is str:
             func = eval(func)
         self.func = func
 
-    def __call__(self, **pack: dict) -> dict:
+    def __call__(self, **sample: dict) -> dict:
         # pack = pack.copy()
-        for key in self.keys:
-            input = DictTool.getattr(pack, key)
-            output = self.func(input)
-            DictTool.setattr(pack, key, output)
-        return pack
+        for n in range(self.ikeys.shape[1]):
+            ikk = self.ikeys[:, n]  # (ni,)
+            okk = self.okeys[:, n]  # (no,)
+            input = [DictTool.getattr(sample, k) for k in ikk]  # ni*(..,)
+            output = self.func(*input)
+            if self.okeys.shape[0] == 1:  # ensure output shape no*(..,)
+                output = [output]
+            [DictTool.setattr(sample, k, v) for k, v in zip(okk, output)]
+        return sample
 
 
 class Normalize:
@@ -33,47 +59,15 @@ class Normalize:
         self.mean = pt.from_numpy(np.array(mean, "float32"))
         self.std = pt.from_numpy(np.array(std, "float32"))
 
-    def __call__(self, **pack: dict) -> dict:
+    def __call__(self, **sample: dict) -> dict:
         # pack = pack.copy()
         for key in self.keys:
-            input = DictTool.getattr(pack, key)
+            input = DictTool.getattr(sample, key)
             mean = input.mean() if self.mean is None else self.mean
             std = input.std() if self.std is None else self.std
             output = (input - mean) / std
-            DictTool.setattr(pack, key, output)
-        return pack
-
-
-class Rearrange:
-    """Can work as Flatten."""
-
-    def __init__(self, keys, pattern, **kwds):
-        self.keys = keys
-        self.pattern = pattern
-        self.kwds = kwds
-
-    def __call__(self, **pack: dict) -> dict:
-        # pack = pack.copy()
-        for key in self.keys:
-            input = DictTool.getattr(pack, key)
-            output = rearrange(input, self.pattern, **self.kwds)
-            DictTool.setattr(pack, key, output)
-        return pack
-
-
-class Clone:
-
-    def __init__(self, keys, keys2):
-        assert len(keys) == len(keys2)
-        self.keys = keys
-        self.keys2 = keys2
-
-    def __call__(self, **pack: dict) -> dict:
-        for key, key2 in zip(self.keys, self.keys2):
-            input = DictTool.getattr(pack, key)
-            output = input.clone()
-            DictTool.setattr(pack, key2, output)
-        return pack
+            DictTool.setattr(sample, key, output)
+        return sample
 
 
 class RandomFlip:
@@ -91,76 +85,26 @@ class RandomFlip:
         self.dims = dims
         self.p = p
 
-    def __call__(self, **pack: dict) -> dict:
+    def __call__(self, **sample: dict) -> dict:
         if random.random() > self.p:
-            return pack
+            return sample
         # pack = pack.copy()
         dim = random.choice(self.dims)
         for key in self.keys:
-            input = DictTool.getattr(pack, key)
+            input = DictTool.getattr(sample, key)
             output = input.flip(dim)
-            DictTool.setattr(pack, key, output)
+            DictTool.setattr(sample, key, output)
         if self.bbox_key:
             assert dim in [-2, -1]  # h, w
-            bbox = DictTool.getattr(pack, self.bbox_key)  # ltrb
+            bbox = DictTool.getattr(sample, self.bbox_key)  # ltrb
+            assert bbox.size(-1) == 4
             bbox2 = bbox.clone()
             if dim == -2:  # height vertical t-b
-                bbox2[..., 1::2] = 1 - bbox[..., 1::2]
+                bbox2[..., 1::2] = 1 - bbox[..., 1::2].flip(-1)
             if dim == -1:  # width horizontal l-r
-                bbox2[..., 0::2] = 1 - bbox[..., 0::2]
-            DictTool.setattr(pack, self.bbox_key, bbox2)
-        return pack
-
-
-class Detach:
-    """Detach keyed tensors from their graph."""
-
-    def __init__(self, keys):
-        self.keys = keys
-
-    def __call__(self, **pack: dict) -> dict:
-        # pack = pack.copy()
-        for key in self.keys:
-            input = DictTool.getattr(pack, key)
-            output = input.detach()
-            DictTool.setattr(pack, key, output)
-        return pack
-
-
-class TupleToNumber:
-    """Convert tuple indexs to number indexes. Support tensor shape (..,g,..)."""
-
-    def __init__(self, keys, groups, gdim):
-        """
-        - groups: sizes of all groups
-        - gdim: which is the group dimension; will be eliminated after conversion
-        """
-        self.keys = keys
-        self.groups = groups
-        self.gdim = gdim
-
-    def __call__(self, **pack: dict) -> dict:
-        # pack = pack.copy()
-        for key in self.keys:
-            input = DictTool.getattr(pack, key)
-            output = __class__.tuple_to_number(input, self.groups, self.gdim)
-            DictTool.setattr(pack, key, output)
-        return pack
-
-    @staticmethod
-    def tuple_to_number(tidx, groups: list, gdim=1):
-        """
-        tidx: shape=(b,g,..)
-        """
-        nidx = 0
-        device = tidx.device
-        base = 1
-        for i, g in enumerate(groups):
-            i = pt.from_numpy(np.array(i, "int64"), device=device)
-            idx_g = tidx.index_select(gdim, i).squeeze(gdim)
-            nidx += idx_g * base
-            base *= g
-        return nidx
+                bbox2[..., 0::2] = 1 - bbox[..., 0::2].flip(-1)
+            DictTool.setattr(sample, self.bbox_key, bbox2)
+        return sample
 
 
 INTERPOLATS = {_.value: _ for _ in ptvt2.InterpolationMode}
@@ -177,6 +121,7 @@ class Resize:
         - max_size: int; resize along the long side
         - c: 1 means tensor shape=(..,c,h,w); 0 means tensor=(..,h,w)
         """
+        assert "flow" not in keys  # TODO XXX not support optical flow resize
         self.keys = keys
         self.interp = INTERPOLATS[interp]
         self.resize = ptvt2.Resize(
@@ -184,17 +129,17 @@ class Resize:
         )
         self.c = c  # input has c or not
 
-    def __call__(self, **pack: dict) -> dict:
+    def __call__(self, **sample: dict) -> dict:
         # pack = pack.copy()
         for key in self.keys:
-            input = DictTool.getattr(pack, key)
+            input = DictTool.getattr(sample, key)
             if not self.c:
                 input = input[..., None, :, :]  # (..,c=1,h,w)
             output = self.resize(input)
             if not self.c:
                 output = output[..., 0, :, :]
-            DictTool.setattr(pack, key, output)
-        return pack
+            DictTool.setattr(sample, key, output)
+        return sample
 
 
 class RandomCrop:
@@ -202,6 +147,8 @@ class RandomCrop:
     RandomResizedCrop can be achieved by combining RandomCrop(size=None) with Resize.
     Its scale is re-scaled in runtime by the maximum square crop of the original image,
     which is better than not (the original implementation).
+
+    Invalid boxes are set to all-zero.
     """
 
     def __init__(
@@ -234,9 +181,9 @@ class RandomCrop:
         self.bbox_key = bbox_key
         self.value = value
 
-    def __call__(self, **pack: dict) -> dict:
+    def __call__(self, **sample: dict) -> dict:
         # pack = pack.copy()
-        image = DictTool.getattr(pack, self.keys[0])
+        image = DictTool.getattr(sample, self.keys[0])
         h0, w0 = image.shape[-2:]
         if self.size is None:
             h0, w0 = image.shape[-2:]
@@ -246,14 +193,14 @@ class RandomCrop:
         params = self.random_crop.make_params(image)
         t, l, h, w = [params[_] for _ in ["top", "left", "height", "width"]]
         for key in self.keys:
-            input = DictTool.getattr(pack, key)
+            input = DictTool.getattr(sample, key)
             output = input[..., t : t + h, l : l + w]
-            DictTool.setattr(pack, key, output)
+            DictTool.setattr(sample, key, output)
         if self.bbox_key:
-            bbox = DictTool.getattr(pack, self.bbox_key)  # ltrb
+            bbox = DictTool.getattr(sample, self.bbox_key)  # ltrb  # (n,c=4)
             bbox2 = __class__.crop_bbox(bbox, h0, w0, t, l, h, w, self.value)
-            DictTool.setattr(pack, self.bbox_key, bbox2)
-        return pack
+            DictTool.setattr(sample, self.bbox_key, bbox2)
+        return sample
 
     @staticmethod
     def crop_bbox(bbox: pt.Tensor, h0, w0, t, l, h, w, value=0) -> pt.Tensor:
@@ -276,7 +223,11 @@ class RandomCrop:
 
 
 class CenterCrop:
-    """Support tensor shape (..,h,w) and bbox shape (..,c=4) lrtb."""
+    """
+    Support tensor shape (..,h,w) and bbox shape (..,c=4) lrtb.
+
+    Invalid boxes are set to all-zero.
+    """
 
     def __init__(self, keys, size: list = None, bbox_key=None, value=0):
         """
@@ -298,9 +249,9 @@ class CenterCrop:
         self.bbox_key = bbox_key
         self.value = value
 
-    def __call__(self, **pack: dict) -> dict:
+    def __call__(self, **sample: dict) -> dict:
         # pack = pack.copy()
-        image = DictTool.getattr(pack, self.keys[0])
+        image = DictTool.getattr(sample, self.keys[0])
         h0, w0 = image.shape[-2:]
         if self.size is None:
             self_size = [min(h0, w0)] * 2
@@ -308,16 +259,16 @@ class CenterCrop:
             self_size = self.size
         t, l, b, r = __class__.calc_params(h0, w0, self_size)
         for key in self.keys:
-            input = DictTool.getattr(pack, key)
+            input = DictTool.getattr(sample, key)
             output = input[..., t:b, l:r]
-            DictTool.setattr(pack, key, output)
+            DictTool.setattr(sample, key, output)
         if self.bbox_key:
-            bbox = DictTool.getattr(pack, self.bbox_key)
+            bbox = DictTool.getattr(sample, self.bbox_key)
             bbox2 = RandomCrop.crop_bbox(
                 bbox, h0, w0, t, l, self_size[0], self_size[1], self.value
             )
-            DictTool.setattr(pack, self.bbox_key, bbox2)
-        return pack
+            DictTool.setattr(sample, self.bbox_key, bbox2)
+        return sample
 
     @staticmethod
     def calc_params(h, w, size):
