@@ -80,7 +80,7 @@ python eval.py \
 # object discovery visualization will be saved to ./slate_r_vqvae-coco-msf/
 ```
 
-### Support
+## Support
 
 If you have any issues on this repo or cool ideas on OCL, please do not hesitate to contact me!
 - page: https://genera1z.github.io
@@ -88,7 +88,7 @@ If you have any issues on this repo or cool ideas on OCL, please do not hesitate
 
 
 
-### Citation
+## Citation
 
 If you find this repo useful, please cite our work.
 ```
