@@ -2,6 +2,7 @@
 Copyright (c) 2024 Genera1Z
 https://github.com/Genera1Z
 """
+
 import math
 
 import torch as pt
@@ -115,7 +116,7 @@ class QuantiZ(nn.Module):
     @staticmethod
     def chi_dist_mean_std(c):
         """
-        Euclidian distances between two Gaussian distributions follows a Chi distribution.  # TODO XXX
+        Euclidian distances between two Gaussian distributions follows a Chi distribution.
         """
         mean = math.sqrt(2) * math.exp(math.lgamma((c + 1) / 2) - math.lgamma(c / 2))
         std = math.sqrt((c - mean**2))

@@ -2,6 +2,7 @@
 Copyright (c) 2024 Genera1Z
 https://github.com/Genera1Z
 """
+
 import torch.utils.data as ptud
 
 from .transform import PadTo1
@@ -48,7 +49,7 @@ class ClPadToMax1:
 class ClPadTo1:
     """Collate Pad To 1 dimension."""
 
-    def __init__(self, keys: list, dims: list, num: list=None, mode="right", value=0):
+    def __init__(self, keys: list, dims: list, num: list = None, mode="right", value=0):
         assert len(keys) == len(dims)
         self.keys = keys
         self.dims = dims
@@ -67,9 +68,7 @@ class ClPadTo1:
                 numi = self.num[i]
 
             for sample, input in zip(samples, inputs):
-                left, right = PadTo1.calc_padding(
-                    numi, input.size(dim), self.mode
-                )
+                left, right = PadTo1.calc_padding(numi, input.size(dim), self.mode)
                 output = PadTo1.pad1(input, dim, left, right, self.value)
                 DictTool.setattr(sample, key, output)
 

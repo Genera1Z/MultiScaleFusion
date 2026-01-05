@@ -2,6 +2,7 @@
 Copyright (c) 2024 Genera1Z
 https://github.com/Genera1Z
 """
+
 from argparse import ArgumentParser
 from pathlib import Path
 import os
@@ -250,7 +251,7 @@ def parse_args():
     parser.add_argument(
         "--seed",
         type=int,
-        default=42,  # TODO XXX
+        default=42,  # TODO XXX 42 43 44
     )
     parser.add_argument(
         "--cfg_file",
