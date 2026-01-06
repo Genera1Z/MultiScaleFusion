@@ -183,7 +183,7 @@ def parse_args():
     parser.add_argument(
         "--is_img",  # image or video
         type=bool,  # TODO XXX
-        default=False,
+        default=True,
     )
     return parser.parse_args()
 
