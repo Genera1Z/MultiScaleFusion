@@ -25,7 +25,7 @@ Official implementation of ICLR 2025 paper "*Multi-Scale Fusion for Object Repre
 
 **Please note that `MSF` is *re-implemented* upon codebase 🤗 [VQ-VFM-OCL](https://github.com/Genera1Z/VQ-VFM-OCL), different from the version described in the paper. For more details, models, checkpoints, datasets and results, please visit this repo.**
 
-Quantitative results of object discovery on COCO:
+Quantitative results of object discovery on COCO: (Encoding with backbone **DINO2/S-14** at resolution **256x256/224x224**)
 
 <img src="res/quantitative_results.png" style="width:40%;">
 
